@@ -4,6 +4,21 @@
     <logicalFolder name="HeaderFiles"
                    displayName="Header Files"
                    projectFiles="true">
+      <logicalFolder name="usbdrv" displayName="usbdrv" projectFiles="true">
+        <itemPath>usbdrv/usbdrvasm128.inc</itemPath>
+        <itemPath>usbdrv/usbdrvasm15.inc</itemPath>
+        <itemPath>usbdrv/asmcommon.inc</itemPath>
+        <itemPath>usbdrv/oddebug.h</itemPath>
+        <itemPath>usbdrv/usbdrvasm20.inc</itemPath>
+        <itemPath>usbdrv/usbdrvasm165.inc</itemPath>
+        <itemPath>usbdrv/usbdrv.h</itemPath>
+        <itemPath>usbdrv/usbdrvasm16.inc</itemPath>
+        <itemPath>usbdrv/usbdrvasm12.inc</itemPath>
+        <itemPath>usbdrv/usbconfig-prototype.h</itemPath>
+        <itemPath>usbdrv/usbdrvasm18-crc.inc</itemPath>
+        <itemPath>usbdrv/usbportability.h</itemPath>
+      </logicalFolder>
+      <itemPath>usbconfig.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -12,13 +27,24 @@
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
                    projectFiles="true">
+      <logicalFolder name="usbdrv" displayName="usbdrv" projectFiles="true">
+        <itemPath>usbdrv/usbdrvasm.S</itemPath>
+        <itemPath>usbdrv/usbdrvasm.asm</itemPath>
+        <itemPath>usbdrv/usbdrv.c</itemPath>
+        <itemPath>usbdrv/oddebug.c</itemPath>
+      </logicalFolder>
+      <itemPath>main.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
                    projectFiles="false">
       <itemPath>Makefile</itemPath>
     </logicalFolder>
+    <itemPath>upload_hex.sh</itemPath>
   </logicalFolder>
+  <sourceRootList>
+    <Elem>usbdrv</Elem>
+  </sourceRootList>
   <projectmakefile>Makefile</projectmakefile>
   <confs>
     <conf name="default" type="2">
@@ -162,6 +188,182 @@
         <property key="sram-segment" value=""/>
         <property key="v-printf" value="false"/>
       </AVR-LD>
+      <item path="usbdrv/asmcommon.inc" ex="true" overriding="false">
+        <AVR-AR>
+        </AVR-AR>
+        <AVR-AS>
+        </AVR-AS>
+        <AVR-AS-PRE>
+        </AVR-AS-PRE>
+        <AVR-CPP>
+        </AVR-CPP>
+        <AVR-GCC>
+        </AVR-GCC>
+        <AVR-Global>
+        </AVR-Global>
+        <AVR-LD>
+        </AVR-LD>
+      </item>
+      <item path="usbdrv/usbconfig-prototype.h" ex="true" overriding="false">
+        <AVR-AR>
+        </AVR-AR>
+        <AVR-AS>
+        </AVR-AS>
+        <AVR-AS-PRE>
+        </AVR-AS-PRE>
+        <AVR-CPP>
+        </AVR-CPP>
+        <AVR-GCC>
+        </AVR-GCC>
+        <AVR-Global>
+        </AVR-Global>
+        <AVR-LD>
+        </AVR-LD>
+      </item>
+      <item path="usbdrv/usbdrvasm.asm" ex="true" overriding="false">
+        <AVR-AR>
+        </AVR-AR>
+        <AVR-AS>
+        </AVR-AS>
+        <AVR-AS-PRE>
+        </AVR-AS-PRE>
+        <AVR-CPP>
+        </AVR-CPP>
+        <AVR-GCC>
+        </AVR-GCC>
+        <AVR-Global>
+        </AVR-Global>
+        <AVR-LD>
+        </AVR-LD>
+      </item>
+      <item path="usbdrv/usbdrvasm12.inc" ex="true" overriding="false">
+        <AVR-AR>
+        </AVR-AR>
+        <AVR-AS>
+        </AVR-AS>
+        <AVR-AS-PRE>
+        </AVR-AS-PRE>
+        <AVR-CPP>
+        </AVR-CPP>
+        <AVR-GCC>
+        </AVR-GCC>
+        <AVR-Global>
+        </AVR-Global>
+        <AVR-LD>
+        </AVR-LD>
+      </item>
+      <item path="usbdrv/usbdrvasm128.inc" ex="true" overriding="false">
+        <AVR-AR>
+        </AVR-AR>
+        <AVR-AS>
+        </AVR-AS>
+        <AVR-AS-PRE>
+        </AVR-AS-PRE>
+        <AVR-CPP>
+        </AVR-CPP>
+        <AVR-GCC>
+        </AVR-GCC>
+        <AVR-Global>
+        </AVR-Global>
+        <AVR-LD>
+        </AVR-LD>
+      </item>
+      <item path="usbdrv/usbdrvasm15.inc" ex="true" overriding="false">
+        <AVR-AR>
+        </AVR-AR>
+        <AVR-AS>
+        </AVR-AS>
+        <AVR-AS-PRE>
+        </AVR-AS-PRE>
+        <AVR-CPP>
+        </AVR-CPP>
+        <AVR-GCC>
+        </AVR-GCC>
+        <AVR-Global>
+        </AVR-Global>
+        <AVR-LD>
+        </AVR-LD>
+      </item>
+      <item path="usbdrv/usbdrvasm16.inc" ex="true" overriding="false">
+        <AVR-AR>
+        </AVR-AR>
+        <AVR-AS>
+        </AVR-AS>
+        <AVR-AS-PRE>
+        </AVR-AS-PRE>
+        <AVR-CPP>
+        </AVR-CPP>
+        <AVR-GCC>
+        </AVR-GCC>
+        <AVR-Global>
+        </AVR-Global>
+        <AVR-LD>
+        </AVR-LD>
+      </item>
+      <item path="usbdrv/usbdrvasm165.inc" ex="true" overriding="false">
+        <AVR-AR>
+        </AVR-AR>
+        <AVR-AS>
+        </AVR-AS>
+        <AVR-AS-PRE>
+        </AVR-AS-PRE>
+        <AVR-CPP>
+        </AVR-CPP>
+        <AVR-GCC>
+        </AVR-GCC>
+        <AVR-Global>
+        </AVR-Global>
+        <AVR-LD>
+        </AVR-LD>
+      </item>
+      <item path="usbdrv/usbdrvasm18-crc.inc" ex="true" overriding="false">
+        <AVR-AR>
+        </AVR-AR>
+        <AVR-AS>
+        </AVR-AS>
+        <AVR-AS-PRE>
+        </AVR-AS-PRE>
+        <AVR-CPP>
+        </AVR-CPP>
+        <AVR-GCC>
+        </AVR-GCC>
+        <AVR-Global>
+        </AVR-Global>
+        <AVR-LD>
+        </AVR-LD>
+      </item>
+      <item path="usbdrv/usbdrvasm20.inc" ex="true" overriding="false">
+        <AVR-AR>
+        </AVR-AR>
+        <AVR-AS>
+        </AVR-AS>
+        <AVR-AS-PRE>
+        </AVR-AS-PRE>
+        <AVR-CPP>
+        </AVR-CPP>
+        <AVR-GCC>
+        </AVR-GCC>
+        <AVR-Global>
+        </AVR-Global>
+        <AVR-LD>
+        </AVR-LD>
+      </item>
+      <item path="usbdrv/usbportability.h" ex="true" overriding="false">
+        <AVR-AR>
+        </AVR-AR>
+        <AVR-AS>
+        </AVR-AS>
+        <AVR-AS-PRE>
+        </AVR-AS-PRE>
+        <AVR-CPP>
+        </AVR-CPP>
+        <AVR-GCC>
+        </AVR-GCC>
+        <AVR-Global>
+        </AVR-Global>
+        <AVR-LD>
+        </AVR-LD>
+      </item>
     </conf>
   </confs>
 </configurationDescriptor>

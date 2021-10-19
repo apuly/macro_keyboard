@@ -23,13 +23,13 @@ the newest features and options.
 
 /* ---------------------------- Hardware Config ---------------------------- */
 
-#define USB_CFG_CLOCK_KHZ       (12000)
+#define USB_CFG_CLOCK_KHZ       (16000)
 
 #define USB_CFG_IOPORTNAME      D
 /* This is the port where the USB bus is connected. When you configure it to
  * "B", the registers PORTB, PINB and DDRB will be used.
  */
-#define USB_CFG_DMINUS_BIT      0
+#define USB_CFG_DMINUS_BIT      3
 /* This is the bit number in USB_CFG_IOPORT where the USB D- line is connected.
  * This may be any bit in the port.
  */
@@ -84,6 +84,7 @@ the newest features and options.
  * The value is in milliamperes. [It will be divided by two since USB
  * communicates power requirements in units of 2 mA.]
  */
+
 #define USB_CFG_IMPLEMENT_FN_WRITE      0
 /* Set this to 1 if you want usbFunctionWrite() to be called for control-out
  * transfers. Set it to 0 if you don't need it and want to save a couple of
@@ -95,6 +96,7 @@ the newest features and options.
  * data from a static buffer, set it to 0 and return the data from
  * usbFunctionSetup(). This saves a couple of bytes.
  */
+
 #define USB_CFG_IMPLEMENT_FN_WRITEOUT   0
 /* Define this to 1 if you want to use interrupt-out (or bulk out) endpoint 1.
  * You must implement the function usbFunctionWriteOut() which receives all
@@ -108,19 +110,17 @@ the newest features and options.
 
 /* -------------------------- Device Description --------------------------- */
 
-/* We cannot use Obdev's free shared VID/PID pair because this is a HID.
- * We use John Hyde's VID (author of the book "USB Design By Example") for
- * this example instead. John has offered this VID for use by students for
- * non-commercial devices. Well... This example is for demonstration and
- * education only... DO NOT LET DEVICES WITH THIS VID ESCAPE YOUR LAB!
- * The Product-ID is a random number.
+/* For the macro keyboard firmware, the Obdev free shared VID is used.
+ * However, because none of the provided product IDs match a non-libusb vendor
+ * class device, a non-conflicting one is chosen.
+ * DO NOT LET DEVICES WITH THIS VID ESCAPE YOUR LAB!
  */
-#define  USB_CFG_VENDOR_ID       0x42, 0x42
+#define  USB_CFG_VENDOR_ID       0xc0, 0x16
 /* USB vendor ID for the device, low byte first. If you have registered your
  * own Vendor ID, define it here. Otherwise you use obdev's free shared
  * VID/PID pair. Be sure to read USBID-License.txt for rules!
  */
-#define  USB_CFG_DEVICE_ID       0x31, 0xe1
+#define  USB_CFG_DEVICE_ID       0xe7, 0x05
 /* This is the ID of the product, low byte first. It is interpreted in the
  * scope of the vendor ID. If you have registered your own VID with usb.org
  * or if you have licensed a PID from somebody else, define it here. Otherwise
@@ -130,8 +130,8 @@ the newest features and options.
 #define USB_CFG_DEVICE_VERSION  0x00, 0x01
 /* Version number of the device: Minor number first, then major number.
  */
-#define USB_CFG_VENDOR_NAME     'o', 'b', 'd', 'e', 'v', '.', 'a', 't'
-#define USB_CFG_VENDOR_NAME_LEN 8
+#define USB_CFG_VENDOR_NAME     'b', 'e', 'r', 's', 'e', 'e', '.', 'n', 'l'
+#define USB_CFG_VENDOR_NAME_LEN 9
 /* These two values define the vendor name returned by the USB device. The name
  * must be given as a list of characters under single quotes. The characters
  * are interpreted as Unicode (UTF-16) entities.
@@ -140,8 +140,8 @@ the newest features and options.
  * obdev's free shared VID/PID pair. See the file USBID-License.txt for
  * details. 
  */
-#define USB_CFG_DEVICE_NAME     'H', 'I', 'D', 'K', 'e', 'y', 's'
-#define USB_CFG_DEVICE_NAME_LEN 7
+#define USB_CFG_DEVICE_NAME     'M', 'a', 'c', 'r', 'o', 'b', 'o', 'a', 'r', 'd'
+#define USB_CFG_DEVICE_NAME_LEN 10
 /* Same as above for the device name. If you don't want a device name, undefine
  * the macros. See the file USBID-License.txt before you assign a name.
  */
@@ -154,17 +154,18 @@ the newest features and options.
  * to fine tune control over USB descriptors such as the string descriptor
  * for the serial number.
  */
-#define USB_CFG_DEVICE_CLASS    0   /* specify the class at the interface level */
+#define USB_CFG_DEVICE_CLASS    0xFF   /* Vendor class */
 #define USB_CFG_DEVICE_SUBCLASS 0
 /* See USB specification if you want to conform to an existing device class.
  */
-#define USB_CFG_INTERFACE_CLASS     0x03    /* HID class */
+#define USB_CFG_INTERFACE_CLASS     0xFF    /* Vendor class */
 #define USB_CFG_INTERFACE_SUBCLASS  0       /* no boot interface */
 #define USB_CFG_INTERFACE_PROTOCOL  0       /* no protocol */
 /* See USB specification if you want to conform to an existing device class or
  * protocol.
  */
-#define USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH    35  /* total length of report descriptor */
+
+//#define USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH    35  /* total length of report descriptor */
 /* Define this to the length of the HID report descriptor, if you implement
  * an HID device. Otherwise don't define it or define it to 0.
  */

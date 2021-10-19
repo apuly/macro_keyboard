@@ -16,282 +16,266 @@
  * Copyright: (c) 2006 by OBJECTIVE DEVELOPMENT Software GmbH
  */
 
+#define F_CPU 16000000L
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <avr/wdt.h>
 
+#include <stdint.h>
+#include <stdbool.h>
+
+#include <util/delay.h>
+
 #include "usbdrv/usbdrv.h"
 #include "usbdrv/oddebug.h"
 
-/* ----------------------- hardware I/O abstraction ------------------------ */
+#define NUM_KEYS 18
+#define NUM_KEY_ROW 3
+#define NUM_KEY_COLL 6
 
-/* pin assignments:
-PB0	Key 1
-PB1	Key 2
-PB2	Key 3
-PB3	Key 4
-PB4	Key 5
-PB5 Key 6
+#if (NUM_KEY_ROW * NUM_KEY_COLL != NUM_KEYS)
+#error *** Mismatch in number of rows, collumns and total number of keys ***
+#endif
 
-PC0	Key 7
-PC1	Key 8
-PC2	Key 9
-PC3	Key 10
-PC4	Key 11
-PC5	Key 12
+#define PIN(x) (0b1 << x)
 
-PD0	USB-
-PD1	debug tx
-PD2	USB+ (int0)
-PD3	Key 13
-PD4	Key 14
-PD5	Key 15
-PD6	Key 16
-PD7	Key 17
+#if (NUM_KEY_ROW > 3)
+    /*
+     * The READ_PINS define only supports upto 3 pins at this time.
+     * This limitation came forward because no more were required for the 
+     * Project. More can be supported, but changes to hardwareInit and READ_PINS
+     * needs to be made.
+     */
+    #error *** Only 3 row pins are supported at this time ***
+#else
+    #define READ_PINS()  ((PINB & (PIN(PINB4) | PIN(PINB3) | PIN(PINB2))) >> 2)
+#endif
+
+static void hardwareInit(void);
+static void usb_setup(void);
+
+static void clear_output(void);
+static uint8_t keyPressed(void);
+
+
+/* pin assignments.
+ * Numnbers 04-12 match arduino pinout standard
+ * PBx & PDx match atmel 328p pinout naming
+ * 
+ * INPUTS:
+ * 12 -> pb4
+ * 11 -> pb3
+ * 10 -> pb2
+
+ * OUTPUTS:
+ * 09 -> pb1
+ * 08 -> pb0
+ * 07 -> pd7
+ * 06 -> pd6
+ * 05 -> pd5
+ * 04 -> pd4
+
+ * USB:
+ * PD0	USB-
+ * PD1	debug tx
+ * PD2	USB+ (int0)
 */
 
 static void hardwareInit(void)
+/*
+ * Properly configures the pin on the microcontroller for communication.
+ * Doesn't initialize USB, this is done in the main function
+*/
 {
-uchar	i, j;
-
-    PORTB = 0xff;   /* activate all pull-ups */
-    DDRB = 0;       /* all pins input */
-    PORTC = 0xff;   /* activate all pull-ups */
-    DDRC = 0;       /* all pins input */
-    PORTD = 0xfa;   /* 1111 1010 bin: activate pull-ups except on USB lines */
-    DDRD = 0x07;    /* 0000 0111 bin: all pins input except USB (-> USB reset) */
-	j = 0;
-	while(--j){     /* USB Reset by device only required on Watchdog Reset */
-		i = 0;
-		while(--i); /* delay >10ms for USB reset */
-	}
-    DDRD = 0x02;    /* 0000 0010 bin: remove USB reset condition */
-    /* configure timer 0 for a rate of 12M/(1024 * 256) = 45.78 Hz (~22ms) */
-    TCCR0B = 5;      /* timer 0 prescaler: 1024 */
+    //set PB0 and PB1 to output
+    DDRB |=  (PIN(DDB0) | PIN(DDB1));
+    //set pb4-3-2 to input
+    DDRB &= ~(PIN(DDB4) | PIN(DDB3) | PIN(DDB2));
+            
+    //set pd7-6-5-4 as output
+    DDRD |= (PIN(DDD7) | PIN(DDD6) | PIN(DDD5) | PIN(DDD4));
+    
+    //disable pullup resistor for pb4-3-2
+    PORTB &= ~(PIN(PORTB4) | PIN(PORTB3) | PIN(PORTB2));
+    
+    //set output for pd7-6-5-4 and pb0-1 to low, don't effectd other pins
+    clear_output();
 }
 
-/* ------------------------------------------------------------------------- */
+static void usb_setup(void)
+{
+    uint8_t i;
+    
+    odDebugInit();
+	usbInit();
+    usbDeviceDisconnect();  /* enforce re-enumeration, do this while interrupts are disabled! */
+    i = 0;
+    while(--i){             /* fake USB disconnect for > 250 ms */
+        wdt_reset();
+        _delay_ms(1);
+    }
+    usbDeviceConnect();
 
-#define NUM_KEYS    17
+	sei();
+}
+
+static void clear_output(void)
+//sets the output pins for the keyboard to low
+{
+    PORTB &= ~(PIN(PORTB0) | PIN(PORTB1));
+    PORTD &= ~(PIN(PORTD7) | PIN(PORTD6) | PIN(PORTD5) | PIN(PORTD4));
+}
+
+static void set_pin_high(uint8_t pin)
+{
+    #if (NUM_KEY_COLL > 6)
+    //set_pin_high can currently only handle 6 different pins.
+    //if more are used, undefined behaviour might occor
+    //configure more pins and modify this function approriately for more collums
+    #error *** no more than 6 collumn pins are supported at this time. ***
+    #endif
+    
+    //convert 0b00 to 0b01 and 0b01 to 0b10, don't effect other pins
+    PORTB |= (0b1 << pin) & 0b11;
+    
+    //convert key 2 to 6 to correct pin on PORTD, don't effect other pins
+    PORTD |= (0b1 << (4+(pin-2))) & 0xf0; //0b11110000
+}
 
 /* The following function returns an index for the first key pressed. It
  * returns 0 if no key is pressed.
  */
-static uchar    keyPressed(void)
+static uint8_t keyPressed(void)
 {
-uchar   i, mask, x;
+    uint8_t row, coll, input; //x and y rows of the macro keyboard
+    
+    for (coll=0; coll<NUM_KEY_COLL; coll++) {
+        clear_output();
+        set_pin_high(coll);
+        
+        //wait a couple of instructions.
+        //won't read pins connected to PORTD without this wait.
+        for (uint8_t i=0; i<50; i++);
+        
+        input = READ_PINS();
+        
+        //quick check to see if any of the pins are activated
+        if (input != 0){            
 
-    x = PINB;
-    mask = 1;
-    for(i=0;i<6;i++){
-        if((x & mask) == 0)
-            return i + 1;
-        mask <<= 1;
+            for (row=0; row<NUM_KEY_ROW; row++) {                
+                //go through pins, return first one that is high
+                if (input & (0b1 << row)){
+                    //if high pin is found, return corrisponding ID
+                    return (coll*NUM_KEY_ROW)+row+1;
+                } 
+            }
+        }
     }
-    x = PINC;
-    mask = 1;
-    for(i=0;i<6;i++){
-        if((x & mask) == 0)
-            return i + 7;
-        mask <<= 1;
-    }
-    x = PIND;
-    mask = 1 << 3;
-    for(i=0;i<5;i++){
-        if((x & mask) == 0)
-            return i + 13;
-        mask <<= 1;
-    }
-    return 0;
+    //if no pressed keys have been found 
+    return 0;   
 }
 
 /* ------------------------------------------------------------------------- */
 /* ----------------------------- USB interface ----------------------------- */
 /* ------------------------------------------------------------------------- */
 
-static uchar    reportBuffer[2];    /* buffer for HID reports */
-static uchar    idleRate;           /* in 4 ms units */
-
-const PROGMEM char usbHidReportDescriptor[35] = {   /* USB report descriptor */
-    0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
-    0x09, 0x06,                    // USAGE (Keyboard)
-    0xa1, 0x01,                    // COLLECTION (Application)
-    0x05, 0x07,                    //   USAGE_PAGE (Keyboard)
-    0x19, 0xe0,                    //   USAGE_MINIMUM (Keyboard LeftControl)
-    0x29, 0xe7,                    //   USAGE_MAXIMUM (Keyboard Right GUI)
-    0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
-    0x25, 0x01,                    //   LOGICAL_MAXIMUM (1)
-    0x75, 0x01,                    //   REPORT_SIZE (1)
-    0x95, 0x08,                    //   REPORT_COUNT (8)
-    0x81, 0x02,                    //   INPUT (Data,Var,Abs)
-    0x95, 0x01,                    //   REPORT_COUNT (1)
-    0x75, 0x08,                    //   REPORT_SIZE (8)
-    0x25, 0x65,                    //   LOGICAL_MAXIMUM (101)
-    0x19, 0x00,                    //   USAGE_MINIMUM (Reserved (no event indicated))
-    0x29, 0x65,                    //   USAGE_MAXIMUM (Keyboard Application)
-    0x81, 0x00,                    //   INPUT (Data,Ary,Abs)
-    0xc0                           // END_COLLECTION
+/*
+ * The keys on the keyboard are numbered as followed, as a result of the way
+ * the keyPressed function has been implemented.
+ *  |----|----|----|----|----|----|
+ *  | 7  | 10 | 13 | 16 | 1  | 4  |
+ *  |----|----|----|----|----|----|
+ *  | 8  | 11 | 14 | 17 | 2  | 5  |
+ *  |----|----|----|----|----|----|
+ *  | 9  | 12 | 15 | 18 | 3  | 5  |   
+ *  |----|----|----|----|----|----|
+ * 
+ * However, this doesn't make much sense and makes programming on the host side
+ * more complicated. So an additional translation step is added to line the key
+ * ids up nicely with the keys on the keyboard, as shown below
+ * 
+ *  |----|----|----|----|----|----|
+ *  | 1  | 2  | 3  | 4  | 5  | 6  |
+ *  |----|----|----|----|----|----|
+ *  | 7  | 8  | 9  | 10 | 11 | 12 |
+ *  |----|----|----|----|----|----|
+ *  | 13 | 14 | 15 | 16 | 17 | 18 |   
+ *  |----|----|----|----|----|----|
+ * 
+ * For this, the following lookup table has been created. The key ID is entered,
+ * and the lookup table matches it to the correct key ID
+*/  
+static const uint8_t keyMap[NUM_KEYS+1] PROGMEM = {
+    /*maps all keys of the keyboard to an ID that lines op logically with
+     the keyboard layout
+     */
+     0, /*0 for when no keys are pressed*/
+     5,  11, 17,  6, 12, 18,
+     1,  7,  13,  2,  8, 14,
+     3,  9,  15,  4, 10, 16
 };
-/* We use a simplifed keyboard report descriptor which does not support the
- * boot protocol. We don't allow setting status LEDs and we only allow one
- * simultaneous key press (except modifiers). We can therefore use short
- * 2 byte input reports.
- * The report descriptor has been created with usb.org's "HID Descriptor Tool"
- * which can be downloaded from http://www.usb.org/developers/hidpage/.
- * Redundant entries (such as LOGICAL_MINIMUM and USAGE_PAGE) have been omitted
- * for the second INPUT item.
+#if (NUM_KEYS > 18)
+/*
+ * keyMap in its current form only supports 18 unique keys. It can be easily
+ * extended by increasing the NUM_KEYS constant and adding more keys to the
+ * keyMap array.
  */
+#error *** only 18 pins supported by the lookup table ***
+#endif
 
-/* Keyboard usage values, see usb.org's HID-usage-tables document, chapter
- * 10 Keyboard/Keypad Page for more codes.
- */
-#define MOD_CONTROL_LEFT    (1<<0)
-#define MOD_SHIFT_LEFT      (1<<1)
-#define MOD_ALT_LEFT        (1<<2)
-#define MOD_GUI_LEFT        (1<<3)
-#define MOD_CONTROL_RIGHT   (1<<4)
-#define MOD_SHIFT_RIGHT     (1<<5)
-#define MOD_ALT_RIGHT       (1<<6)
-#define MOD_GUI_RIGHT       (1<<7)
-
-#define KEY_A       4
-#define KEY_B       5
-#define KEY_C       6
-#define KEY_D       7
-#define KEY_E       8
-#define KEY_F       9
-#define KEY_G       10
-#define KEY_H       11
-#define KEY_I       12
-#define KEY_J       13
-#define KEY_K       14
-#define KEY_L       15
-#define KEY_M       16
-#define KEY_N       17
-#define KEY_O       18
-#define KEY_P       19
-#define KEY_Q       20
-#define KEY_R       21
-#define KEY_S       22
-#define KEY_T       23
-#define KEY_U       24
-#define KEY_V       25
-#define KEY_W       26
-#define KEY_X       27
-#define KEY_Y       28
-#define KEY_Z       29
-#define KEY_1       30
-#define KEY_2       31
-#define KEY_3       32
-#define KEY_4       33
-#define KEY_5       34
-#define KEY_6       35
-#define KEY_7       36
-#define KEY_8       37
-#define KEY_9       38
-#define KEY_0       39
-
-#define KEY_F1      58
-#define KEY_F2      59
-#define KEY_F3      60
-#define KEY_F4      61
-#define KEY_F5      62
-#define KEY_F6      63
-#define KEY_F7      64
-#define KEY_F8      65
-#define KEY_F9      66
-#define KEY_F10     67
-#define KEY_F11     68
-#define KEY_F12     69
-
-static const uchar  keyReport[NUM_KEYS + 1][2] PROGMEM = {
-/* none */  {0, 0},                     /* no key pressed */
-/*  1 */    {MOD_SHIFT_LEFT, KEY_A},
-/*  2 */    {MOD_SHIFT_LEFT, KEY_B},
-/*  3 */    {MOD_SHIFT_LEFT, KEY_C},
-/*  4 */    {MOD_SHIFT_LEFT, KEY_D},
-/*  5 */    {MOD_SHIFT_LEFT, KEY_E},
-/*  6 */    {MOD_SHIFT_LEFT, KEY_F},
-/*  7 */    {MOD_SHIFT_LEFT, KEY_G},
-/*  8 */    {MOD_SHIFT_LEFT, KEY_H},
-/*  9 */    {MOD_SHIFT_LEFT, KEY_I},
-/* 10 */    {MOD_SHIFT_LEFT, KEY_J},
-/* 11 */    {MOD_SHIFT_LEFT, KEY_K},
-/* 12 */    {MOD_SHIFT_LEFT, KEY_L},
-/* 13 */    {MOD_SHIFT_LEFT, KEY_M},
-/* 14 */    {MOD_SHIFT_LEFT, KEY_N},
-/* 15 */    {MOD_SHIFT_LEFT, KEY_O},
-/* 16 */    {MOD_SHIFT_LEFT, KEY_P},
-/* 17 */    {MOD_SHIFT_LEFT, KEY_Q},
-};
-
-static void buildReport(uchar key)
-{
-/* This (not so elegant) cast saves us 10 bytes of program memory */
-    *(int *)reportBuffer = pgm_read_word(keyReport[key]);
-}
+#define translate_key(key) pgm_read_byte(keyMap+key)
 
 uchar	usbFunctionSetup(uchar data[8])
 {
-usbRequest_t    *rq = (void *)data;
-
-    usbMsgPtr = reportBuffer;
-    if((rq->bmRequestType & USBRQ_TYPE_MASK) == USBRQ_TYPE_CLASS){    /* class request type */
-        if(rq->bRequest == USBRQ_HID_GET_REPORT){  /* wValue: ReportType (highbyte), ReportID (lowbyte) */
-            /* we only have one report type, so don't look at wValue */
-            buildReport(keyPressed());
-            return sizeof(reportBuffer);
-        }else if(rq->bRequest == USBRQ_HID_GET_IDLE){
-            usbMsgPtr = &idleRate;
-            return 1;
-        }else if(rq->bRequest == USBRQ_HID_SET_IDLE){
-            idleRate = rq->wValue.bytes[1];
-        }
-    }else{
-        /* no vendor specific requests implemented */
-    }
-	return 0;
+    /*
+     * Returning data is handled by the main loop, so this function is not
+     * needed. However, the code doesn't compile without this function, so it's 
+     * just here, being all empty
+     */
+  return 0;
 }
 
 /* ------------------------------------------------------------------------- */
 
+
+
 int	main(void)
 {
-uchar   key, lastKey = 0, keyDidChange = 0;
-uchar   idleCounter = 0;
+    uint8_t key, prevKey = 0, translated_key;
+    bool keyChanged = false;
 
 	wdt_enable(WDTO_2S);
     hardwareInit();
-	odDebugInit();
-	usbInit();
-	sei();
-    DBG1(0x00, 0, 0);
-	for(;;){	/* main event loop */
-		wdt_reset();
-		usbPoll();
+    usb_setup();
+    
+    while(true){
+		/*called every loop to keep chip running properly*/
+        wdt_reset();
+        usbPoll();
+        
+        /*
+         * rest of the main loop is a debounce program and the needed calls to 
+         * make the connection over the interrupt endpoint working
+         */
+        
         key = keyPressed();
-        if(lastKey != key){
-            lastKey = key;
-            keyDidChange = 1;
+        if(prevKey != key){
+            keyChanged = true;
+            prevKey = key;
         }
-        if(TIFR0 & (1<<TOV0)){   /* 22 ms timer */
-            TIFR0 = 1<<TOV0;
-            if(idleRate != 0){
-                if(idleCounter > 4){
-                    idleCounter -= 5;   /* 22 ms in units of 4 ms */
-                }else{
-                    idleCounter = idleRate;
-                    keyDidChange = 1;
-                }
-            }
-        }
-        if(keyDidChange && usbInterruptIsReady()){
-            keyDidChange = 0;
+        
+        _delay_ms(22); //delay based on HIDKey project. Importance unknown.
+        
+        //If button isn't bouncing and usb is ready
+        if(keyChanged && keyPressed() == prevKey && usbInterruptIsReady()){
+            keyChanged = false;
+            
             /* use last key and not current key status in order to avoid lost
                changes in key status. */
-            buildReport(lastKey);
-            usbSetInterrupt(reportBuffer, sizeof(reportBuffer));
+            translated_key = translate_key(prevKey);
+            usbSetInterrupt(&translated_key, sizeof(translated_key));
         }
 	}
 	return 0;

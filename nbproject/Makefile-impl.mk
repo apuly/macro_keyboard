@@ -24,7 +24,7 @@ CLEAN_SUBPROJECTS=${CLEAN_SUBPROJECTS_${SUBPROJECTS}}
 
 
 # Project Name
-PROJECTNAME=macro_keyboard.X
+PROJECTNAME=macro_keyboard
 
 # Active Configuration
 DEFAULTCONF=default
